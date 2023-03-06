@@ -5,7 +5,7 @@
 Scans a list of raccoon servers from Tria.ge and extracts the config as JSON. If you like, it can also automatically send follow-up malware extracted from the Raccoon config to Tria.ge
 (API key required)
 
-![image](https://user-images.githubusercontent.com/9799160/223089468-38025d2b-06c3-492d-a9f1-ead3f9d66dd3.png)
+![image](https://user-images.githubusercontent.com/9799160/223089608-22445e80-1524-490c-be19-a741c580cb16.png)
 
 
 # Resources:
