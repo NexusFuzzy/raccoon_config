@@ -73,8 +73,6 @@ def parse_config(c2_config):
             if SUBMIT_TO_TRIAGE:
                 submit_to_triage(url)
 
-    print(c2_config)
-
     # Since ldr_1 happens to be in the config more than once we need to treat them differently
     # since we can't have a key with the same name in the JSON twice
     ldr_counter = 0
