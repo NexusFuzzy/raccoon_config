@@ -1,6 +1,8 @@
 import requests
 import random
 import json
+import argparse
+import validators
 
 TRIAGE_API_KEY = ""
 SUBMIT_TO_TRIAGE = True
@@ -18,7 +20,7 @@ class TriageResult:
 def check_triage(max_items):
     headers = {"Authorization": "Bearer " + TRIAGE_API_KEY}
 
-    result = requests.get("https://tria.ge/api/v0/search?query=family:raccoon&limit=" + max_items,
+    result = requests.get("https://tria.ge/api/v0/search?query=family:raccoon&limit=" + str(max_items),
                           headers=headers).json()
 
 
@@ -122,17 +124,44 @@ def knock(c2, config_id):
 
 
 if __name__ == '__main__':
-    triage_results = check_triage("50")
-    for result in triage_results:
-        config_extracted = False
-        for server in result.servers:
-            if not config_extracted:
-                print("Checking server " + server)
-                config = knock(server, result.botnet_id)
+
+    parser = argparse.ArgumentParser()
+    required = parser.add_argument_group('required arguments')
+    optional = parser.add_argument_group('optional arguments')
+    required.add_argument('--target', help="Either choose 'triage' as target to get the latest raccoon reports from Tria.ge sandbox or enter your raccoon C&C server in the format 'http://123.123.123.123/'", required=True)
+    optional.add_argument('--sample_count', help="Specify the number of reports to get from Tria.ge sandbox. Default is 50", type=int)
+    optional.add_argument('--config_id', help="If you choose a custom URL as target, you will also need to specify the RC4 key")
+    args = parser.parse_args()
+
+    if args.target == "triage":
+        num_samples = 50
+        if args.sample_count:
+            num_samples = args.sample_count
+
+        triage_results = check_triage(num_samples)
+        for result in triage_results:
+            config_extracted = False
+            for server in result.servers:
+                if not config_extracted:
+                    print("Checking server " + server)
+                    config = knock(server, result.botnet_id)
+                    if config != "":
+                        print("Successfully extracted config from C2!")
+                        config_extracted = True
+                        config_json = parse_config(config)
+                        print(json.dumps(config_json, indent=4))
+
+    elif args.target != "triage":
+        if validators.url(args.target):
+            if args.config_id is not None:
+                config = knock(args.target, args.config_id)
                 if config != "":
                     print("Successfully extracted config from C2!")
                     config_extracted = True
                     config_json = parse_config(config)
-
                     print(json.dumps(config_json, indent=4))
-
+            else:
+                print("No config_id / RC4 key specified - aborting.")
+        else:
+            print("Specified target couldn't be recognized as valid URL - aborting.")
+            exit()
