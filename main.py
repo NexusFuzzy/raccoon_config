@@ -88,7 +88,7 @@ def parse_config(c2_config):
             v = line[line.index(":"):]
             config_json[k] = v
         except:
-            print("Line '" + line + " couldn't be added to config JSON")
+            pass
     return config_json
 
 
