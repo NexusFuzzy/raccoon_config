@@ -3,9 +3,10 @@ import random
 import json
 import argparse
 import validators
+import os
 
 TRIAGE_API_KEY = ""
-SUBMIT_TO_TRIAGE = True
+SUBMIT_TO_TRIAGE = False
 
 
 class TriageResult:
@@ -104,7 +105,7 @@ def knock(c2, config_id):
     try:
         # configId is the rc4 key extracted by Tria.ge
         # Value of User-Agent does NOT to be considered yet
-        headers = {"User-Agent": "901785252113",
+        headers = {"User-Agent": "AYAYAYAY1338",
                    "Accept": "*/*",
                    "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
                    "Cache-Control": "no-cache",
@@ -116,6 +117,7 @@ def knock(c2, config_id):
                 print("C2 returned valid config")
                 return reply.text
         else:
+            print("We received an answer we can't parse: " + reply.text)
             return ""
 
     except Exception as ex:
@@ -131,6 +133,7 @@ if __name__ == '__main__':
     required.add_argument('--target', help="Either choose 'triage' as target to get the latest raccoon reports from Tria.ge sandbox or enter your raccoon C&C server in the format 'http://123.123.123.123/'", required=True)
     optional.add_argument('--sample_count', help="Specify the number of reports to get from Tria.ge sandbox. Default is 50", type=int)
     optional.add_argument('--config_id', help="If you choose a custom URL as target, you will also need to specify the RC4 key")
+    optional.add_argument('--output', help="Save generated config JSON to specific folder additionally to showing them")
     args = parser.parse_args()
 
     if args.target == "triage":
@@ -150,6 +153,11 @@ if __name__ == '__main__':
                         config_extracted = True
                         config_json = parse_config(config)
                         print(json.dumps(config_json, indent=4))
+                        if args.output:
+                            if not os.path.exists(args.output):
+                                os.makedirs(args.output)
+                            out_file = open(os.path.join(args.output, "config_" + server.replace("http://", "").replace("\\","").replace("/","") + ".json"), "w")
+                            json.dump(config_json, out_file, indent=4)
 
     elif args.target != "triage":
         if validators.url(args.target):
@@ -160,6 +168,11 @@ if __name__ == '__main__':
                     config_extracted = True
                     config_json = parse_config(config)
                     print(json.dumps(config_json, indent=4))
+                    if args.output:
+                        if not os.path.exists(args.output):
+                            os.makedirs(args.output)
+                        out_file = open(os.path.join(args.output, "config_" + server.replace("http://", "").replace("\\","").replace("/","") + ".json"), "w")
+                        json.dump(config_json, out_file, indent=4)
             else:
                 print("No config_id / RC4 key specified - aborting.")
         else:
