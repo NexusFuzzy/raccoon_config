@@ -6,7 +6,7 @@ import validators
 import os
 
 TRIAGE_API_KEY = ""
-SUBMIT_TO_TRIAGE = False
+SUBMIT_TO_TRIAGE = True
 
 
 class TriageResult:
@@ -64,7 +64,7 @@ def submit_to_triage(url):
         print("Unknown reply from Tria.ge: " + reply)
 
 
-def parse_config(c2_config):
+def parse_config(c2_config, botnet_id):
     config_json = {}
 
     # Just a very rudimentary parser for now
@@ -86,10 +86,11 @@ def parse_config(c2_config):
                 k = "ldr_1_" + str(ldr_counter)
                 ldr_counter += 1
 
-            v = line[line.index(":"):]
+            v = line[line.index(":") + 1:]
             config_json[k] = v
         except:
             pass
+    config_json["botnet_id"] = botnet_id
     return config_json
 
 
@@ -105,7 +106,7 @@ def knock(c2, config_id):
     try:
         # configId is the rc4 key extracted by Tria.ge
         # Value of User-Agent does NOT to be considered yet
-        headers = {"User-Agent": "AYAYAYAY1338",
+        headers = {"User-Agent": "901785252113",
                    "Accept": "*/*",
                    "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
                    "Cache-Control": "no-cache",
@@ -151,7 +152,7 @@ if __name__ == '__main__':
                     if config != "":
                         print("Successfully extracted config from C2!")
                         config_extracted = True
-                        config_json = parse_config(config)
+                        config_json = parse_config(config, result.botnet_id)
                         print(json.dumps(config_json, indent=4))
                         if args.output:
                             if not os.path.exists(args.output):
@@ -166,7 +167,7 @@ if __name__ == '__main__':
                 if config != "":
                     print("Successfully extracted config from C2!")
                     config_extracted = True
-                    config_json = parse_config(config)
+                    config_json = parse_config(config, args.config_id)
                     print(json.dumps(config_json, indent=4))
                     if args.output:
                         if not os.path.exists(args.output):
