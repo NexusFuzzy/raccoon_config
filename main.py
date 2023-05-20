@@ -4,9 +4,10 @@ import json
 import argparse
 import validators
 import os
+import os.path
 
 TRIAGE_API_KEY = ""
-SUBMIT_TO_TRIAGE = True
+SUBMIT_TO_TRIAGE = False
 
 
 class TriageResult:
@@ -64,7 +65,7 @@ def submit_to_triage(url):
         print("Unknown reply from Tria.ge: " + reply)
 
 
-def parse_config(c2_config, botnet_id):
+def parse_config(c2_config, botnet_id, c2):
     config_json = {}
 
     # Just a very rudimentary parser for now
@@ -91,6 +92,7 @@ def parse_config(c2_config, botnet_id):
         except:
             pass
     config_json["botnet_id"] = botnet_id
+    config_json["c2"] = c2
     return config_json
 
 
@@ -99,26 +101,40 @@ def random_string(length):
 
 
 def create_machine_id():
-    return random_string(8) + "-" + random_string(4) + "-" + random_string(4) + "12"
+    return random_string(8) + "-" + random_string(4) + "-" + random_string(4) + "-" + random_string(4) + "-" + random_string(12)
 
 
-def knock(c2, config_id):
+def knock(c2, config_id, possible_proxies):    
+    if len(possible_proxies) > 0:
+        proxies = {'http': 'socks5://' + possible_proxies[random.randint(0,len(possible_proxies)-1)],
+                   'https': 'socks5://' + possible_proxies[random.randint(0,len(possible_proxies)-1)]  }
+    
     try:
+        if not c2.startswith("http://"):
+            c2 = "http://" + c2
+        if not c2.endswith("/"):
+            c2 = c2 + "/"
         # configId is the rc4 key extracted by Tria.ge
         # Value of User-Agent does NOT to be considered yet
-        headers = {"User-Agent": "901785252113",
+        headers = {"User-Agent": "AYAYAYAY1337",
                    "Accept": "*/*",
                    "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
                    "Cache-Control": "no-cache",
                    "Connection": "Keep-Alive"}
-        reply = requests.post(c2, data="machineId=" + create_machine_id() + "|Admin&configId=" + config_id,
+        if len(possible_proxies) > 0:           
+            reply = requests.post(c2, data="machineId=" + create_machine_id() + "|Admin&configId=" + config_id,
+                              timeout=15, headers=headers, proxies=proxies)
+        else:
+            reply = requests.post(c2, data="machineId=" + create_machine_id() + "|Admin&configId=" + config_id,
                               timeout=15, headers=headers)
         if reply.status_code == 200:
             if "Installed applications:" in reply.text:
                 print("C2 returned valid config")
                 return reply.text
+            else:
+                print("We received an answer we can't parse: " + reply.text)
         else:
-            print("We received an answer we can't parse: " + reply.text)
+            print("Received non-200 HTTP code from server: " + str(reply.status_code))
             return ""
 
     except Exception as ex:
@@ -136,6 +152,16 @@ if __name__ == '__main__':
     optional.add_argument('--config_id', help="If you choose a custom URL as target, you will also need to specify the RC4 key")
     optional.add_argument('--output', help="Save generated config JSON to specific folder additionally to showing them")
     args = parser.parse_args()
+    
+    possible_proxies = []
+    script_location = os.path.dirname(os.path.abspath(__file__))
+    if os.path.exists(script_location + "\\proxies.txt"):
+        with open(script_location + "\\proxies.txt", "r") as proxy_file:
+            possible_proxies = proxy_file.read().split("\n")
+        print("Loaded " + str(len(possible_proxies)) + " SOCKS5 proxies")
+        
+    else:
+        print("No proxies.txt found in script directory - using direct connection")
 
     if args.target == "triage":
         num_samples = 50
@@ -148,11 +174,11 @@ if __name__ == '__main__':
             for server in result.servers:
                 if not config_extracted:
                     print("Checking server " + server)
-                    config = knock(server, result.botnet_id)
+                    config = knock(server, result.botnet_id, possible_proxies)
                     if config != "":
                         print("Successfully extracted config from C2!")
                         config_extracted = True
-                        config_json = parse_config(config, result.botnet_id)
+                        config_json = parse_config(config, result.botnet_id, server)
                         print(json.dumps(config_json, indent=4))
                         if args.output:
                             if not os.path.exists(args.output):
@@ -163,16 +189,16 @@ if __name__ == '__main__':
     elif args.target != "triage":
         if validators.url(args.target):
             if args.config_id is not None:
-                config = knock(args.target, args.config_id)
+                config = knock(args.target, args.config_id, possible_proxies)
                 if config != "":
                     print("Successfully extracted config from C2!")
                     config_extracted = True
-                    config_json = parse_config(config, args.config_id)
+                    config_json = parse_config(config, args.config_id, args.target)
                     print(json.dumps(config_json, indent=4))
                     if args.output:
                         if not os.path.exists(args.output):
                             os.makedirs(args.output)
-                        out_file = open(os.path.join(args.output, "config_" + server.replace("http://", "").replace("\\","").replace("/","") + ".json"), "w")
+                        out_file = open(os.path.join(args.output, "config_" + args.target.replace("http://", "").replace("\\","").replace("/","") + ".json"), "w")
                         json.dump(config_json, out_file, indent=4)
             else:
                 print("No config_id / RC4 key specified - aborting.")
