@@ -67,33 +67,35 @@ def submit_to_triage(url):
 
 def parse_config(c2_config, botnet_id, c2):
     config_json = {}
+    try:
+        # Just a very rudimentary parser for now
+        lines = c2_config.split("\n")
+        for line in lines:
+            if line.startswith("ldr_"):
+                line_parts = line.split("|")
+                url = line_parts[0][line_parts[0].index("http"):]
+                if SUBMIT_TO_TRIAGE:
+                    submit_to_triage(url)
 
-    # Just a very rudimentary parser for now
-    lines = c2_config.split("\n")
-    for line in lines:
-        if line.startswith("ldr_"):
-            line_parts = line.split("|")
-            url = line_parts[0][line_parts[0].index("http"):]
-            if SUBMIT_TO_TRIAGE:
-                submit_to_triage(url)
+        # Since ldr_1 happens to be in the config more than once we need to treat them differently
+        # since we can't have a key with the same name in the JSON twice
+        ldr_counter = 0
+        for line in lines:
+            try:
+                k = line[:line.index(":")]
+                if k == "ldr_1":
+                    k = "ldr_1_" + str(ldr_counter)
+                    ldr_counter += 1
 
-    # Since ldr_1 happens to be in the config more than once we need to treat them differently
-    # since we can't have a key with the same name in the JSON twice
-    ldr_counter = 0
-    for line in lines:
-        try:
-            k = line[:line.index(":")]
-            if k == "ldr_1":
-                k = "ldr_1_" + str(ldr_counter)
-                ldr_counter += 1
-
-            v = line[line.index(":") + 1:]
-            config_json[k] = v
-        except:
-            pass
-    config_json["botnet_id"] = botnet_id
-    config_json["c2"] = c2
-    return config_json
+                v = line[line.index(":") + 1:]
+                config_json[k] = v
+            except:
+                pass
+        config_json["botnet_id"] = botnet_id
+        config_json["c2"] = c2
+        return config_json
+    except:
+        return config_json
 
 
 def random_string(length):
@@ -116,8 +118,10 @@ def knock(c2, config_id, possible_proxies):
             c2 = c2 + "/"
         # configId is the rc4 key extracted by Tria.ge
         # Value of User-Agent does NOT to be considered yet
-        headers = {"User-Agent": "AYAYAYAY1337",
+        headers = {#"User-Agent": "AYAYAYAY1337",
+                   "User-Agent": "GunnaWunnaBlueTips", 
                    "Accept": "*/*",
+                   "Accept-Encoding": None,
                    "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
                    "Cache-Control": "no-cache",
                    "Connection": "Keep-Alive"}
