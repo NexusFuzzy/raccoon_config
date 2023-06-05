@@ -5,9 +5,13 @@ import argparse
 import validators
 import os
 import os.path
+import urllib3
 
 TRIAGE_API_KEY = ""
-SUBMIT_TO_TRIAGE = False
+SUBMIT_TO_TRIAGE = True
+
+THREATFOX_API_KEY = ""
+SUBMIT_TO_THREATFOX = True
 
 
 class TriageResult:
@@ -24,7 +28,6 @@ def check_triage(max_items):
 
     result = requests.get("https://tria.ge/api/v0/search?query=family:raccoon&limit=" + str(max_items),
                           headers=headers).json()
-
 
     triage_results = []
     for s in result['data']:
@@ -63,7 +66,44 @@ def submit_to_triage(url):
         print("Submitted to Tria.ge with ID " + reply.get("id"))
     else:
         print("Unknown reply from Tria.ge: " + reply)
+        
+        
+def submit_to_threatfox(config):
 
+    if THREATFOX_API_KEY == "":
+        print("Please provide a ThreatFox API key before proceeding")
+        return
+        
+    # We remove the token from the config since it is a "one-time-key" which
+    # has no informational value. You can think of it like a session cookie
+    config['token'] = ""
+        
+    headers = {
+        "API-KEY":        THREATFOX_API_KEY,
+    }
+    pool = urllib3.HTTPSConnectionPool('threatfox-api.abuse.ch', port=443, maxsize=50, headers=headers, cert_reqs='CERT_NONE', assert_hostname=True)
+    
+    data = {
+        'query':            'submit_ioc',
+        'threat_type':      'botnet_cc',
+        'ioc_type':         'url',
+        'malware':          'win.raccoon',
+        'confidence_level': 100,
+        'reference':        "",
+        'comment':          json.dumps(config, indent=4),
+        'anonymous':        0,
+        'tags': [
+            "raccoon"
+        ],
+        'iocs': [
+            config['c2']
+        ]
+    }
+    json_data = json.dumps(data)
+    response = pool.request("POST", "/api/v1/", body=json_data)
+    response = response.data.decode("utf-8", "ignore")
+    print(response)
+    
 
 def parse_config(c2_config, botnet_id, c2):
     config_json = {}
@@ -116,6 +156,10 @@ def knock(c2, config_id, possible_proxies):
             c2 = "http://" + c2
         if not c2.endswith("/"):
             c2 = c2 + "/"
+            
+        # Test
+        #c2 = "http://79.137.206.76/"
+        c2 = "http://185.174.137.120/"
         # configId is the rc4 key extracted by Tria.ge
         # Value of User-Agent does NOT to be considered yet
         headers = {#"User-Agent": "AYAYAYAY1337",
@@ -184,10 +228,12 @@ if __name__ == '__main__':
                         config_extracted = True
                         config_json = parse_config(config, result.botnet_id, server)
                         print(json.dumps(config_json, indent=4))
+                        if SUBMIT_TO_THREATFOX:
+                            submit_to_threatfox(config_json)
                         if args.output:
                             if not os.path.exists(args.output):
                                 os.makedirs(args.output)
-                            out_file = open(os.path.join(args.output, "config_" + server.replace("http://", "").replace("\\","").replace("/","") + ".json"), "w")
+                            out_file = open(os.path.join(args.output, "config_" + server.replace("http://", "").replace("\\","").replace("/","") + "_" + config_json["botnet_id"] + ".json"), "w")
                             json.dump(config_json, out_file, indent=4)
 
     elif args.target != "triage":
@@ -199,10 +245,12 @@ if __name__ == '__main__':
                     config_extracted = True
                     config_json = parse_config(config, args.config_id, args.target)
                     print(json.dumps(config_json, indent=4))
+                    if SUBMIT_TO_THREATFOX:
+                        submit_to_threatfox(config_json)
                     if args.output:
                         if not os.path.exists(args.output):
                             os.makedirs(args.output)
-                        out_file = open(os.path.join(args.output, "config_" + args.target.replace("http://", "").replace("\\","").replace("/","") + ".json"), "w")
+                        out_file = open(os.path.join(args.output, "config_" + args.target.replace("http://", "").replace("\\","").replace("/","") + "_" + config_json["botnet_id"] + ".json"), "w")
                         json.dump(config_json, out_file, indent=4)
             else:
                 print("No config_id / RC4 key specified - aborting.")
